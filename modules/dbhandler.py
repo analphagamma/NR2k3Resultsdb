@@ -9,7 +9,7 @@ from modules.track import Track
 class DBHandler:
 
     def __init__(self, series_ini):
-        self.series_ini = series_ini # This object should be instantiated without the series_ini somehow.
+        self.series_ini = series_ini
         try:
             client = MongoClient('mongodb://localhost:27017/')
             client.server_info()
@@ -56,11 +56,11 @@ class DBHandler:
         print('Creating Tracks table...')
         for tr in s.tracktable():
             tr = tr.meta_info()
-            self.db.tracks.update_one({'name': tr['name']},
+            self.db.tracks.update_one({'track_directory': tr['track_directory']},
                                       {'$setOnInsert': {'length': tr['length'],
                                                         'type': tr['type'],
                                                         'location': tr['location'],
-                                                        'track_directory': tr['track_directory']}},
+                                                        'name': tr['name']}},
                                         upsert=True)
         print('Tracks added.')
         print('Initialisation finished.')
@@ -68,8 +68,8 @@ class DBHandler:
     ### DATA ENTRY
     ### ----------
     
-    def enter_single_result(self, result_file, series_ini):
-        r = Results(result_file, Season(series_ini)) # ADD CHECK IF SEASON EXISTS IN DB
+    def enter_single_result(self, result_file):
+        r = Results(result_file, Season(self.series_ini)) # ADD CHECK IF SEASON EXISTS IN DB
         print('Adding:\n\tSeason: {}\n\tTrack: {}'.format(r.curSeason.meta_info()['name'], r.metadata()['track_name']))
         res = r.full_results()
         # create or update driverlist
@@ -89,22 +89,32 @@ class DBHandler:
         self.db.results.insert_many(res)
         print('Done.')
 
-    def enter_season_result(self, target_folder, series_ini):
+    def enter_season_result(self, target_folder):
         ''' iterates through all the html files in the ./exports_imports/target_folder '''
         print('Looking in folder {}...'.format(target_folder))
         for f in os.walk('../exports_imports/'+target_folder): # ADD CHECK!!
             results_files = f[2]
             print('{} exported results found'.format(len(results_files)))
         for rf in results_files:
-            self.enter_single_result(rf, series_ini)
+            self.enter_single_result(rf)
         print('All entries added.')
 
     ### QUERIES
     ### -------
 
+    ### Season queries
     def chship_standings(self):
         pass
 
+    def season_info(self):
+        ''' Returns the season's name, year and a list of the events with their metadata. '''
+        s = Season(self.series_ini)
+        s_info = s.meta_info()
+        return {'name': s_info['name'],
+                'year': s_info['year'],
+                'event_list': s.schedule()}
+
+    ### Race queries
     def race_results(self, race_name):
         ''' Returns a race's full results
             sorted by position '''
@@ -129,7 +139,8 @@ class DBHandler:
             full_results.append(result_row)
 
         return sorted(full_results, key=lambda k: k['r_position'])
-        
+
+    ### Driver queries    
     def all_winners(self):
         ''' Returns a list of tuples where
 
@@ -142,12 +153,16 @@ class DBHandler:
             winner = self.db.results.find_one({'event_id': self.db.events.find_one({'event_name': race_name})['_id'],
                                                'r_position': {'$eq': 1}
                                                })
-            return db.drivers.find_one({'_id': winner['driver']})
+            trackd = self.db.events.find_one({'event_name': race_name})['track_directory']
+            
+            return {'winner':self.db.drivers.find_one({'_id': winner['driver']})['name'],
+                    'track': self.db.tracks.find_one({'track_directory': trackd})['name'],
+                    'track_directory': trackd}
 
-        all_winners = []
+        all_winners = {}
         for event in self.db.events.find():
-            all_winners.append((event['event_name'], winner_of_race(event['event_name'])['name']))
-
+            all_winners[event['event_name']] = winner_of_race(self, event['event_name'])
+        pprint(all_winners)
         return all_winners
             
     def top_10_of_race(self, race_name):
@@ -199,5 +214,3 @@ class DBHandler:
 
     def driver_on_track_type(self, driver_name, track_type):
         pass
-
-    

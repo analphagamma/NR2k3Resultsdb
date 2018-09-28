@@ -1,4 +1,5 @@
 __all__ = ['track',
            'season',
            'results',
-           'dbhandler']
+           'dbhandler',
+           'make_html']

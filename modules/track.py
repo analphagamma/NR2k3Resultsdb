@@ -19,7 +19,7 @@ class Track:
 
     def meta_info(self):
 
-        return {'name': self.config[' track ']['track_name'],
+        return {'name': self.config[' track ']['track_name'].title(),
                 'length': float(self.config[' track ']['track_length'].strip('m ')),
                 'type': self.config[' track ']['track_type'],
                 'location': '{}, {}'.format(self.config[' track ']['track_city'], self.config[' track ']['track_state']),

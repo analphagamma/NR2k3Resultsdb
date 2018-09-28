@@ -78,3 +78,7 @@ venv.bak/
 /series
 /misc
 /exports_imports
+*.html
+repopulate.py
+*.mdml
+cli_menu.py
