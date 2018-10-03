@@ -7,7 +7,9 @@ from modules.results import Results
 from modules.track import Track
 
 class DBHandler:
-
+    ''' All MongoDB operations.
+        It initializes the database and runs all queries. '''
+        
     def __init__(self, series_ini):
         self.series_ini = series_ini
         try:
@@ -69,6 +71,8 @@ class DBHandler:
     ### ----------
     
     def enter_single_result(self, result_file):
+        ''' Adds a race's result from the exported html file. '''
+        
         r = Results(result_file, Season(self.series_ini)) # ADD CHECK IF SEASON EXISTS IN DB
         print('Adding:\n\tSeason: {}\n\tTrack: {}'.format(r.curSeason.meta_info()['name'], r.metadata()['track_name']))
         res = r.full_results()
@@ -91,6 +95,7 @@ class DBHandler:
 
     def enter_season_result(self, target_folder):
         ''' iterates through all the html files in the ./exports_imports/target_folder '''
+        
         print('Looking in folder {}...'.format(target_folder))
         for f in os.walk('../exports_imports/'+target_folder): # ADD CHECK!!
             results_files = f[2]
@@ -104,10 +109,14 @@ class DBHandler:
 
     ### Season queries
     def chship_standings(self):
-        pass
+        standings = []
+        for driver in self.db.drivers.find():
+            standings.append([driver['name'], *self.driver_summary(driver['name'])])
+        return sorted(standings, key=lambda k: k[1], reverse=True)
 
     def season_info(self):
         ''' Returns the season's name, year and a list of the events with their metadata. '''
+        
         s = Season(self.series_ini)
         s_info = s.meta_info()
         return {'name': s_info['name'],
@@ -118,6 +127,7 @@ class DBHandler:
     def race_results(self, race_name):
         ''' Returns a race's full results
             sorted by position '''
+            
         event = self.db.events.find_one({'event_name': race_name})
         if event == None:
             print('Event "{}" not found in season'.format(race_name))
@@ -126,16 +136,18 @@ class DBHandler:
         for r in self.db.results.find({'event_id': event['_id']}):
             result_row = {'#': r['#'],
                           'driver': self.db.drivers.find_one({'_id': r['driver']})['name'],
-                          'interval': r['interval'] ,
-                          'laps': r['laps'],
-                          'laps_led': r['laps_led'],
-                          'most_led': r['most_led'],
-                          'points': r['points'],
-                          'q_position': r['q_position'],
-                          'q_time': r['q_time'],
-                          'r_position': r['r_position'],
-                          'status': r['status']
+                          'interval': r.get('interval'),
+                          'laps': r.get('laps'),
+                          'laps_led': r.get('laps_led'),
+                          'most_led': r.get('most_led'),
+                          'points': r.get('points'),
+                          'q_position': r.get('q_position'),
+                          'q_time': round(r.get('q_time'), 3),
+                          'r_position': r.get('r_position'),
+                          'status': r.get('status')
                           }
+            if not result_row['r_position']:
+                result_row['r_position'] = 99
             full_results.append(result_row)
 
         return sorted(full_results, key=lambda k: k['r_position'])
@@ -164,24 +176,6 @@ class DBHandler:
             all_winners[event['event_name']] = winner_of_race(self, event['event_name'])
         pprint(all_winners)
         return all_winners
-            
-    def top_10_of_race(self, race_name):
-        ''' Returns a list of tuples of the top 10 finishing drivers
-            from the input race
-
-            tuple[0] is the finishing position
-            tuple[1] is the driver's name '''
-            
-        all_top10 = []
-        top10 = self.db.results.find({'event_id': self.db.events.find_one({'event_name': race_name})['_id'],
-                                      'r_position': {'$lte': 10}
-                                      })
-        
-        for dr in top10:
-            all_top10.append((dr['r_position'], self.db.drivers.find_one({'_id': dr['driver']})['name']))
-
-        return sorted(all_top10, key=lambda k: k[0])
-    
 
     def driver_summary(self, driver_name):
         ''' Returns:
@@ -195,22 +189,169 @@ class DBHandler:
                 laps_led
                 dnf
                 races'''
-        pass
 
-    def driver_in_race(self, driver_name, race_name):
-        race = self.db.events.find_one({'event_name': race_name})
-        if race == None:
-            print('Event "{}" not in season'.format(race_name))
-            return None
-        driver = self.db.drivers.find_one({'name': driver_name})
-        if driver == None:
-            print('Driver "{}" not in season'.format(driver_name))
-            return None
-    
-        results = self.db.results.find_one({'event_id': race['_id'], 'driver': driver['_id']})
-        results['driver'] = self.db.drivers.find_one({'_id': results['driver']})['name']
-        results['event_id'] = self.db.events.find_one({'_id': results['event_id']})['event_name']
-        return results
+        dr_id = self.db.drivers.find_one({'name': driver_name})['_id']
+        
+        def points():
+            ''' Returns the aggregate points of a driver. '''
+            points = self.db.results.aggregate([{'$match':
+                                            {'driver': dr_id}},
+                                         {'$group':
+                                            {'_id': 'null',
+                                                'points': 
+                                                    {'$sum': '$points'}
+                                            }
+                                         }])
+            return points.next()['points']
+                                         
+        def wins():
+            ''' Returns the number of topfives by a driver. '''
+            wins = self.db.results.aggregate([{'$match':
+                                             {'driver': dr_id, 'r_position': 1}
+                                          },
+                                         {'$count': 'wins'}
+                                          ])
+            if wins.alive:
+                return wins.next()['wins']
+            else:
+                return 0
+                                                                  
+        def top5s():
+            ''' Returns the number of top5 finishes by a driver. '''
+            topfives =  self.db.results.aggregate([{'$match':
+                                             {'driver': dr_id, 'r_position': {'$lte': 5}}
+                                          },
+                                         {'$count': 'topfives'}
+                                          ])
+            if topfives.alive:
+                return topfives.next()['topfives']
+            else:
+                return 0
+                                          
+        def top10s():
+            ''' Returns the number of top10 finishes by a driver. '''
+            toptens =  self.db.results.aggregate([{'$match':
+                                             {'driver': dr_id, 'r_position': {'$lte': 10}}
+                                            },
+                                            {'$count': 'toptens'}
+                                            ])
+            if toptens.alive:
+                return toptens.next()['toptens']
+            else:
+                return 0
+            
+        def pole_pos():
+            ''' Returns the number of pole positions by a driver. '''
+            poles =  self.db.results.aggregate([{'$match':
+                                                    {'driver': dr_id, 'q_position': 1}
+                                                },
+                                            {'$count': 'poles'}
+                                            ])
+            if poles.alive:
+                return poles.next()['poles']
+            else:
+                return 0
+        
+        def avg_finish():
+            ''' Returns the average finishing position of a driver. '''
+            avg_fin =  self.db.results.aggregate([{'$match':
+                                                {'driver': dr_id}},
+                                             {'$group':
+                                                {'_id': 'null',
+                                                 'avg': 
+                                                    {'$avg': '$r_position'}
+                                                }
+                                             }])
+            return avg_fin.next()['avg']
+            
+        def avg_start():
+            ''' Returns the average starting position of a driver. '''
+            avg_st =  self.db.results.aggregate([{'$match':
+                                                {'driver': dr_id}},
+                                            {'$group':
+                                                {'_id': 'null',
+                                                 'avg': 
+                                                    {'$avg': '$q_position'}
+                                                }
+                                            }])
+            return avg_st.next()['avg']
+            
+        def laps_led():
+            ''' Returns the number of laps led by a driver. '''
+            led =  self.db.results.aggregate([{'$match':
+                                            {'driver': dr_id}},
+                                         {'$group':
+                                            {'_id': 'null',
+                                             'led': 
+                                                {'$sum': '$laps_led'}
+                                            }
+                                          }])
+            if led.alive:
+                return led.next()['led']
+            else:
+                return 0
+            
+        def dnfs():
+            ''' Returns the number of retires of a driver. '''
+            dnf = self.db.results.aggregate([{'$match':
+                                            {'driver': dr_id,
+                                             'status': {'$ne': 'Running'}
+                                            }
+                                        },
+                                        {'$count': 'dnf'}                                  
+                                        ])
+            if dnf.alive:
+                return dnf.next()['dnf']
+            else:
+                return 0
+            
+        def num_races():
+            ''' Returns the number of races started by the driver. '''
+            races = self.db.results.aggregate([{'$match':
+                                             {'driver': dr_id}
+                                         },
+                                         {'$count': 'races'}                                  
+                                         ])
+            return races.next()['races']
 
-    def driver_on_track_type(self, driver_name, track_type):
-        pass
+        return (points(),
+                wins(),
+                top5s(), 
+                top10s(),
+                pole_pos(),
+                round(avg_finish(), 1),
+                round(avg_start(),1),
+                laps_led(),
+                dnfs(),
+                num_races()
+                )
+
+    def driver_in_races(self, driver_name):
+        ''' Returns all the event collections that the driver was part of.
+            This method returns a generator object. '''
+        dr_id = self.db.drivers.find_one({'name': driver_name})['_id']
+
+        res_cur = self.db.results.find({'driver': dr_id})
+        for events in res_cur:
+            yield events
+
+    def all_drivers_history(self):
+        ''' Returns all drivers' result summary from every event they took part in. '''
+
+        all_drivers = {}
+
+        for driver in self.db.drivers.find():
+            dr_results = []
+            for ev in self.driver_in_races(driver['name']):
+                event = self.db.events.find_one({'_id': ev['event_id']})
+                dr_results.append([event['event_id']+1,
+                                   event['event_name'],
+                                   event['track_name'],
+                                   ev.get('r_position'),
+                                   ev['q_position'],
+                                   ev.get('laps_led'),
+                                   ev.get('most_led'),
+                                   ev.get('status')])
+            all_drivers[driver['name']] = sorted(dr_results, key=lambda k: k[0])
+
+        return all_drivers
