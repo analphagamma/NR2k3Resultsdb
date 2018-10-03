@@ -4,6 +4,7 @@ from context import dbhandler
 
 class DataBaseTest(unittest.TestCase):
 
+    @unittest.skip('')
     def test1_adding_full_season(self):
         dbobj = dbhandler.DBHandler('Unipart Series.ini')
         dbobj.reset_db(dbobj.db)
@@ -21,7 +22,9 @@ class DataBaseTest(unittest.TestCase):
         dbobj = dbhandler.DBHandler('Unipart Series.ini')
         pprint(dbobj.driver_in_race('T Striczki', 'Toad Racers 250'))
 
-
+    def test4_driver_summary(self):
+        dbobj = dbhandler.DBHandler('Unipart Series.ini')
+        print(dbobj.driver_summary('M Williams'))
 
 if __name__ == '__main__':
     unittest.main()
