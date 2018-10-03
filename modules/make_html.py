@@ -26,7 +26,7 @@ class htmlTable:
     def tcolour(self, borderc: str, backgroundc: str):
         ''' Sets the colour of the table border and the colour of the background '''
         
-        return '<table style="width: 615px; border-color: {}; background-color: {}; margin-left: auto; margin-right: auto;" border="black">\n'.format(borderc, backgroundc)
+        return '<table style="width: {}px; border-color: {}; background-color: {}; margin-left: auto; margin-right: auto;" border="black">\n'.format(sum(self.col_widths), borderc, backgroundc)
 
     def tname(self, table_name: str):
         ''' Sets the name of the table and puts it in the centre. '''
@@ -63,7 +63,8 @@ class htmlPage:
         self.table_list = table_list
         self.bg_colour = bg_colour
 
-    def make_href(self, chfrom: str, chto: str):
+    def make_href(self, chfrom: str):
+        chto = chfrom.replace('\'', '').replace(' ', _) + '.html'
         return '<a href="{}">{}</a>'.format(chto, chfrom)
 
     def assemble(self):
@@ -77,23 +78,59 @@ class htmlPage:
     
 class StandingsPage:
 
-    def __init__(self, standings: dict):
+    def __init__(self, standings: list, season_name: str):
         self.standings = standings
+        self.season_name = season_name
+
+    def build_page(self):
+        
+        widths = [18,180,100,18,18,18,18,50,50,18,18,18]
+        tabledata = [['P',
+                      'Driver',
+                      'Points',
+                      'Wins',
+                      'Top5s',
+                      'Top10s',
+                      'Poles',
+                      'Avg Finish',
+                      'Avg Start',
+                      'Laps Led',
+                      'DNFs',
+                      'Starts']]
+
+        for i, row in enumerate(self.standings):
+            tabledata.append([i+1, *row])
+
+        t = htmlTable(tabledata, widths)
+        t_col = t.tcolour('black', '#d3d3d3')
+        t_name = t.tname('Standings')
+        table = t.assemble(t_name, t_col)
+        page = htmlPage('Championship Standings',
+                        [self.season_name, ''],
+                        [table],
+                        'powderblue')
+
+        with open('standings.html', 'w') as page_f:
+            page_f.write(page.assemble())
+        #webbrowser.open('standings.html')
 
 class RaceResults:
-
+    ''' The html format of a race results of a given season. '''
+    
     def __init__(self, results: dict, season_name: str, event_name):
         self.results = results
         self.season_name = season_name
         self.event_name = event_name
 
     def build_page(self):
-        widths = [18,18,65,18,160,65,45,45,60,50,50]
+        ''' Builds the webpage, saves the file and opens it. '''
+
+        widths = [18,18,65,18,180,65,45,45,60,50,50]
         tabledata = [['P',
                        'S',
                        'Q Time',
                        '#',
-                       'Name',
+                       'Driver',
                        'Interval',
                        'Laps',
                        'Led',
@@ -125,20 +162,53 @@ class RaceResults:
 
         with open('race.html', 'w') as page_f:
             page_f.write(page.assemble())
-        webbrowser.open('race.html')
+        #webbrowser.open('race.html')
         
 class DriverStats:
 
-    def __init__(self, driver_stats: dict):
+    def __init__(self, driver_name: str, driver_stats: list):
+        self.driver_name = driver_name
         self.driver_stats = driver_stats
 
+    def build_page(self):
+        
+        widths = [18, 300, 300, 18, 18, 18, 45, 80]
+        tabledata = [['No.',
+                      'Event',
+                      'Track',
+                      'Finish',
+                      'Start',
+                      'Laps Led',
+                      'Most Led',
+                      'Status']]
+
+        
+        for event in self.driver_stats:
+            tabledata.append(event)
+
+        t = htmlTable(tabledata, widths)
+        t_col = t.tcolour('black', '#d3d3d3')
+        t_name = t.tname('Driver Info')
+        table = t.assemble(t_name, t_col)
+        page = htmlPage(self.driver_name,
+                        ['', ''],
+                        [table],
+                        'powderblue')
+
+        filename = self.driver_name.replace(' ', '_').replace('\'', '')
+        with open(filename+'.html', 'w') as page_f:
+            page_f.write(page.assemble())
+    
 class SeasonInfo:
+    ''' The html format of the current season's data. '''
     
     def __init__(self, season_info: dict, winners: dict):
         self.season_info = season_info
         self.winners = winners
 
     def build_page(self):
+        ''' Builds the webpage, saves the file and opens it. '''
+        
         widths = [160, 160, 100, 45, 160]
         tabledata = [['Date',
                       'Event Name',
@@ -166,4 +236,4 @@ class SeasonInfo:
 
         with open('season.html', 'w') as page_f:
             page_f.write(page.assemble())
-        webbrowser.open('season.html')
+        #webbrowser.open('season.html')
