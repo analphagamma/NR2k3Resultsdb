@@ -18,7 +18,8 @@ class Track:
             sys.exit(1)
 
     def meta_info(self):
-
+        ''' Extracts track information from the track.ini '''
+        
         return {'name': self.config[' track ']['track_name'].title(),
                 'length': float(self.config[' track ']['track_length'].strip('m ')),
                 'type': self.config[' track ']['track_type'],
