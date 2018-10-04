@@ -174,7 +174,6 @@ class DBHandler:
         all_winners = {}
         for event in self.db.events.find():
             all_winners[event['event_name']] = winner_of_race(self, event['event_name'])
-        pprint(all_winners)
         return all_winners
 
     def driver_summary(self, driver_name):
