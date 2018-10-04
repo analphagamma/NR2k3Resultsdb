@@ -63,14 +63,17 @@ class htmlPage:
              - title_text -> a list of 2 strings [<h1>, <h2>] used as titles
              - bg_colour -> name or hex of a colour if you don't like powderblue '''
              
-    widths = []
-    tabledata = [[]]
     
-    def __init__(self, head: str, title_text= ['',''], bg_colour='powderblue'):
+    
+    def __init__(self, head: str, title_text: list, bg_colour='powderblue'):
         self.head = head
         self.title_text = title_text
         self.bg_colour = bg_colour
-        self.filename = '_' # this is overridden in the subclasses.
+
+        # these are overridden in the subclasses.
+        self.filename = '_'
+        self.widths = []
+        self.tabledata = [[]]
 
     def make_href(self, chfrom: str):
         ''' Transforms a string into a href.
@@ -114,26 +117,29 @@ class StandingsPage(htmlPage):
         On top of the parent classes attribute you have to provide:
             - standings -> a list of lists from dbhandler.DBHandler.chship_standings()
             - season_name -> a string entered either manually or from dbhandler.DBHandler.season_info()'''
-        
-    widths = [18,250,100,18,18,18,18,50,50,18,18,18]
-    tabledata = [['P',
-                  'Driver',
-                  'Points',
-                  'Wins',
-                  'Top5s',
-                  'Top10s',
-                  'Poles',
-                  'Avg Finish',
-                  'Avg Start',
-                  'Laps Led',
-                  'DNFs',
-                  'Starts']]
                   
     def __init__(self, head: str, title_text: list, standings: list, season_name: str):
         super().__init__(head, title_text)
         self.standings = standings
         self.season_name = season_name
-        self.filename = 'standings'
+        self.filename = 'standings_'+ \
+                        self.season_name.replace(' ', '_') \
+                                        .replace('\'', '') \
+                                        .replace('(', '_') \
+                                        .replace(')', '_')
+        self.widths = [18,250,100,18,18,18,18,50,50,18,18,18]
+        self.tabledata = [['P',
+                          'Driver',
+                          'Points',
+                          'Wins',
+                          'Top5s',
+                          'Top10s',
+                          'Poles',
+                          'Avg Finish',
+                          'Avg Start',
+                          'Laps Led',
+                          'DNFs',
+                          'Starts']]
 
         for i, row in enumerate(self.standings):
             self.tabledata.append([i+1, *row])
@@ -145,29 +151,29 @@ class RaceResults(htmlPage):
             - results -> a list of dictionaries from dbhandler.DBHandler.race_results()
             - season_name }
             - event_name  } -> both entered either manually or from dbhandler.DBHandler.season_info()'''
-
-    widths = [18,18,65,18,180,65,45,45,60,50,50]
-    tabledata = [['P',
-                   'S',
-                   'Q Time',
-                   '#',
-                   'Driver',
-                   'Interval',
-                   'Laps',
-                   'Led',
-                   'Led Most',
-                   'Points',
-                   'Status']]
                    
     def __init__(self, head, title_text, results: list, season_name: str, event_name):
         super().__init__(head, title_text)
         self.results = results
         self.season_name = season_name
         self.event_name = event_name
-        self.filename = 'race' + event_name.replace(' ', '_') \
-                                           .replace('\'', '') \
-                                           .replace('(', '_') \
-                                           .replace(')', '_') 
+        self.filename = 'race_'+ \
+                        event_name.replace(' ', '_') \
+                                  .replace('\'', '') \
+                                  .replace('(', '_') \
+                                  .replace(')', '_')
+        self.widths = [18,18,65,18,180,65,45,45,60,50,50]
+        self.tabledata = [['P',
+                           'S',
+                           'Q Time',
+                           '#',
+                           'Driver',
+                           'Interval',
+                           'Laps',
+                           'Led',
+                           'Led Most',
+                           'Points',
+                           'Status']]
 
         for row in self.results:
             self.tabledata.append([row['r_position'],
@@ -192,25 +198,28 @@ class DriverStats(htmlPage):
 
         Usually this page is created in bulk for all the drivers at once. '''
         
-    widths = [18, 300, 300, 18, 18, 18, 45, 80]
-    tabledata = [['No.',
-                  'Event',
-                  'Track',
-                  'Finish',
-                  'Start',
-                  'Laps Led',
-                  'Most Led',
-                  'Status']]
+    
 
     def __init__(self, head: str, title_text: str, driver_name: str, driver_stats: list):
         super().__init__(head, title_text)
         self.driver_name = driver_name
         self.driver_stats = driver_stats
-        self.filename = self.driver_name.replace(' ', '_') \
+        self.filename = 'driver_'+ \
+                        self.driver_name.replace(' ', '_') \
                                         .replace('\'', '')
-        
+        self.widths = [18, 300, 300, 18, 18, 18, 45, 80]
+        self.tabledata = [['No.',
+                          'Event',
+                          'Track',
+                          'Finish',
+                          'Start',
+                          'Laps Led',
+                          'Most Led',
+                          'Status']]
+                
         for event in self.driver_stats:
-            tabledata.append(event)
+            self.tabledata.append(event)
+
 
     
 class SeasonInfo(htmlPage):
@@ -218,25 +227,27 @@ class SeasonInfo(htmlPage):
         On top of the attributes of teh parent class you have to provide:
             - season_info -> from dbhandler.DBHandler.season_info()
             - winners -> from dbhandler.DBHandler.all_winners() '''
-            
-    widths = [160, 160, 100, 45, 160]
-    tabledata = [['Date',
-                  'Event Name',
-                  'Track',
-                  'Laps',
-                  'Winner']]
-    
+                
     def __init__(self, head: str, title_text: str, season_info: dict, winners: dict):
         super().__init__(head, title_text)
         self.season_info = season_info
         self.winners = winners
-        self.filename = self.season_info['year']+'_'+self.season_info['name'].replace(' ', '_') \
-                                                                             .replace('\'', '') \
-                                                                             .replace('(', '_') \
-                                                                             .replace(')', '_')
+        self.filename = 'season_'+ \
+                        self.season_info['year']+ \
+                        '_'+ \
+                        self.season_info['name'].replace(' ', '_') \
+                                               .replace('\'', '') \
+                                               .replace('(', '_') \
+                                               .replace(')', '_')
+        self.widths = [160, 160, 100, 45, 160]
+        self.tabledata = [['Date',
+                          'Event Name',
+                          'Track',
+                          'Laps',
+                          'Winner']]
 
         for row in self.season_info['event_list']:
-            tabledata.append([row['date'],
+            self.tabledata.append([row['date'],
                               row['event_name'],
                               self.winners[row['event_name']]['track'],
                               row['no_of_laps'],
