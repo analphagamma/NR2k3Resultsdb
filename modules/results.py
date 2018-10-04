@@ -5,7 +5,8 @@ from datetime import datetime
 from modules.season import Season
 
 class Results:
-
+    ''' The class that extracts and organises data from the exported html. '''
+    
     def __init__(self, exported_results, curSeason: Season):
         self.exported_results = exported_results
         self.curSeason = curSeason
@@ -21,6 +22,7 @@ class Results:
             
             seq: the list
             ch: number of elements in each group. '''
+            
         seqt = []
         for v in seq:
             seqt.append(v.get_text().strip('\r\n\t'))
@@ -28,6 +30,7 @@ class Results:
         
     def metadata(self):
         ''' Extracts race data and returns it in a dictionary. '''
+        
         meta = self.soup.findAll('h3')
 
         track = meta[0].get_text().strip()[7:]
@@ -55,6 +58,7 @@ class Results:
     def event_id(self):
         ''' Searches the event list and tries to match the date of the race.
             Returns an integer. '''
+            
         for event in self.curSeason.schedule():
             if event['date'] == self.metadata()['date']:
                 return event['event_id']
@@ -68,6 +72,7 @@ class Results:
 
             Finishing position is returned as an int,
             qualifying time is returned as a float. '''
+            
         Q_data = self.soup.findAll('table')[0]
         event_id = self.event_id()
         if event_id == None:
@@ -100,6 +105,7 @@ class Results:
             Finishing position, number of laps completed, number of
             points received and the number of laps led are integers,
             most laps led in a boolean. '''
+            
         R_data = self.soup.findAll('table')[1]
         print('Reading Race data for {}'.format(self.metadata()['track_name']))
         results = []
@@ -131,6 +137,7 @@ class Results:
 
     def full_results(self):
         ''' Joins the two result lists'''
+        
         merged = {}
         Q = self.Q_results()
         R = self.R_results()
@@ -150,6 +157,7 @@ class Results:
 
     def driverlist(self):
         ''' Creates a list of drivers who ran this race. '''
+        
         driverlist = []
         for dr in self.full_results():
             driverlist.append({'name': dr['driver'], 'number': dr['#']})
