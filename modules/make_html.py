@@ -46,7 +46,7 @@ class htmlTable:
         
         self.rows.append(''.join([self.add_column(self.col_widths[w], v, header=isHeader) for w, v in enumerate(row)]))
 
-    def assemble(self, name, colours):
+    def assemble_table(self, name, colours):
         ''' Puts together all the elements of the table and returns it as a string. '''
         
         for row in self.table_data:
@@ -56,29 +56,43 @@ class htmlTable:
         return name + colours + '<tbody>\n' + ''.join(self.rows) + '</tbody>\n' + '</table>'
         
 class htmlPage:
-
+    ''' The parent class of all the different page formats.
+        It is instantiated with a
+             - head -> head text
+             optional:
+             - title_text -> a list of 2 strings [<h1>, <h2>] used as titles
+             - bg_colour -> name or hex of a colour if you don't like powderblue '''
+             
     widths = []
     tabledata = [[]]
     
-    def __init__(self, head: str, title_text: list, bg_colour='powderblue'):
+    def __init__(self, head: str, title_text= ['',''], bg_colour='powderblue'):
         self.head = head
         self.title_text = title_text
         self.bg_colour = bg_colour
-        self.filename = '_'
+        self.filename = '_' # this is overridden in the subclasses.
 
     def make_href(self, chfrom: str):
+        ''' Transforms a string into a href.
+            //Not implemented yet.// '''
+            
         chto = chfrom.replace('\'', '').replace(' ', _) + '.html'
         return '<a href="{}">{}</a>'.format(chto, chfrom)
 
     def build_tables(self):
+        ''' Puts together the tables from the tabledata list of lists and the widths of all the columns and
+            gives it a name and a colour. '''
+            
         t = htmlTable(self.tabledata, self.widths)
         t_col = t.tcolour('black', '#d3d3d3')
         t_name = t.tname('_')
-        table = t.assemble(t_name, t_col)
+        table = t.assemble_table(t_name, t_col)
         return table
         
 
     def assemble(self):
+        ''' Returns the whole page's html code in a single string.'''
+        
         opening_tags = '<html>\n<body style="background-color:{};">\n<head><title>\n'.format(self.bg_colour)
         title1 = '<h1 style="text-align: center;">{}</h1>\n'.format(self.title_text[0])
         title2 = '<h2 style="text-align: center;">{}</h2>\n'.format(self.title_text[1])
@@ -87,12 +101,20 @@ class htmlPage:
         closing_tags = '</body>\n</html>'
         return opening_tags + self.head + body_tags + title1 + title2  + tables + closing_tags
 
-    def build_page(self):
-        with open(self.filename+'.html', 'w') as page_f:
+    def create_page(self):
+        ''' Saves the html file with the correct filename into the
+            tables sub-directory.'''
+            
+        with open('./tables/'+self.filename+'.html', 'w') as page_f:
             page_f.write(self.assemble())
     
 class StandingsPage(htmlPage):
-
+    ''' A webpage that shows the current standings in the championship.
+        Column widths and table headers are predetermined.
+        On top of the parent classes attribute you have to provide:
+            - standings -> a list of lists from dbhandler.DBHandler.chship_standings()
+            - season_name -> a string entered either manually or from dbhandler.DBHandler.season_info()'''
+        
     widths = [18,250,100,18,18,18,18,50,50,18,18,18]
     tabledata = [['P',
                   'Driver',
@@ -118,7 +140,11 @@ class StandingsPage(htmlPage):
                     
 
 class RaceResults(htmlPage):
-    ''' The html format of a race results of a given season. '''
+    ''' The html format of a race results of a given season.
+        On top of the attributes of teh parent class you have to provide:
+            - results -> a list of dictionaries from dbhandler.DBHandler.race_results()
+            - season_name }
+            - event_name  } -> both entered either manually or from dbhandler.DBHandler.season_info()'''
 
     widths = [18,18,65,18,180,65,45,45,60,50,50]
     tabledata = [['P',
@@ -133,7 +159,7 @@ class RaceResults(htmlPage):
                    'Points',
                    'Status']]
                    
-    def __init__(self, head, title_text, results: dict, season_name: str, event_name):
+    def __init__(self, head, title_text, results: list, season_name: str, event_name):
         super().__init__(head, title_text)
         self.results = results
         self.season_name = season_name
@@ -159,7 +185,13 @@ class RaceResults(htmlPage):
 
         
 class DriverStats(htmlPage):
-    
+    ''' Webpage for an individual driver's results and statistics.
+        On top of the attributes of teh parent class you have to provide:
+            - driver_name -> <(first name initial) (surname)'(nickname)'>
+            - driver_stats -> list from dbhandler.DBHandler.all_drivers_history()
+
+        Usually this page is created in bulk for all the drivers at once. '''
+        
     widths = [18, 300, 300, 18, 18, 18, 45, 80]
     tabledata = [['No.',
                   'Event',
@@ -170,30 +202,23 @@ class DriverStats(htmlPage):
                   'Most Led',
                   'Status']]
 
-    def __init__(self, driver_name: str, driver_stats: list):
+    def __init__(self, head: str, title_text: str, driver_name: str, driver_stats: list):
+        super().__init__(head, title_text)
         self.driver_name = driver_name
         self.driver_stats = driver_stats
-
-    def build_page(self):
+        self.filename = self.driver_name.replace(' ', '_') \
+                                        .replace('\'', '')
         
         for event in self.driver_stats:
             tabledata.append(event)
 
-        t = htmlTable(tabledata, widths)
-        t_col = t.tcolour('black', '#d3d3d3')
-        t_name = t.tname('Driver Info')
-        table = t.assemble(t_name, t_col)
-        page = htmlPage(self.driver_name,
-                        ['', ''],
-                        [table],
-                        'powderblue')
-
-        filename = self.driver_name.replace(' ', '_').replace('\'', '')
-        with open(filename+'.html', 'w') as page_f:
-            page_f.write(page.assemble())
     
 class SeasonInfo(htmlPage):
-    ''' The html format of the current season's data. '''
+    ''' Webpage for the current season's data.
+        On top of the attributes of teh parent class you have to provide:
+            - season_info -> from dbhandler.DBHandler.season_info()
+            - winners -> from dbhandler.DBHandler.all_winners() '''
+            
     widths = [160, 160, 100, 45, 160]
     tabledata = [['Date',
                   'Event Name',
@@ -201,30 +226,19 @@ class SeasonInfo(htmlPage):
                   'Laps',
                   'Winner']]
     
-    def __init__(self, season_info: dict, winners: dict):
+    def __init__(self, head: str, title_text: str, season_info: dict, winners: dict):
+        super().__init__(head, title_text)
         self.season_info = season_info
         self.winners = winners
-
-    def build_page(self):
-        ''' Builds the webpage, saves the file and opens it. '''
+        self.filename = self.season_info['year']+'_'+self.season_info['name'].replace(' ', '_') \
+                                                                             .replace('\'', '') \
+                                                                             .replace('(', '_') \
+                                                                             .replace(')', '_')
 
         for row in self.season_info['event_list']:
-            print(row['event_name'])
             tabledata.append([row['date'],
                               row['event_name'],
                               self.winners[row['event_name']]['track'],
                               row['no_of_laps'],
                               self.winners[row['event_name']]['winner']
                               ])
-
-        t = htmlTable(self.tabledata, self.widths)
-        t_col = t.tcolour('black', '#d3d3d3')
-        t_name = t.tname('Season')
-        table = t.assemble(t_name, t_col)
-        page = htmlPage('Season Schedule',
-                        [self.season_info['name'], self.season_info['year']],
-                        [table],
-                        'powderblue')
-
-        with open('season.html', 'w') as page_f:
-            page_f.write(page.assemble())
