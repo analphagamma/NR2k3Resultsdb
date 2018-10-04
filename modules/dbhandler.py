@@ -336,7 +336,7 @@ class DBHandler:
             yield events
 
     def all_drivers_history(self):
-        ''' Returns all drivers' result summary from every event they took part in. '''
+        ''' Returns all drivers' results summary from every event they took part in. '''
 
         all_drivers = {}
 
