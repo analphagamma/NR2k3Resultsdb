@@ -2,11 +2,15 @@ import unittest
 from pprint import pprint
 import webbrowser
 from context import make_html as mh
-from context import make_html_v as mh_v
 from context import dbhandler
 from pymongo import MongoClient
 
 class TableTest(unittest.TestCase):
+
+    client = MongoClient('mongodb://localhost:27017/')
+    client.server_info()
+    db = client.chship
+    dbobj = dbhandler.DBHandler('Unipart Series.ini')
 
     @unittest.skip('')
     def test1_build_table(self):
@@ -112,48 +116,50 @@ class TableTest(unittest.TestCase):
             page_f.write(page.assemble())
         webbrowser.open('page_test.html')
     
-    @unittest.skip('')
-    def test3_generate_results(self):
-        dbobj = dbhandler.DBHandler('Unipart Series.ini')
-        winners = dbobj.all_winners()
-        season_page =  mh.SeasonInfo(dbobj.season_info(), winners)
-        season_page.build_page()        
-       
-    def test4_generate_results(self):
-        dbobj = dbhandler.DBHandler('Unipart Series.ini')
-        res = dbobj.race_results('The Grapevine 175')
-        s_name = dbobj.season_info()['name']
-        e_name = 'The Grapevine 175'
-        results_page = mh_v.RaceResults('Race Results',
-                                        [e_name, 'Official Results'],
-                                        res,
-                                        s_name,
-                                        e_name)
-
-        results_page.build_page()
+    def test3_generate_seasoninfo(self):
+        winners = self.dbobj.all_winners()
+        s_info = self.dbobj.season_info()
+        season_page =  mh.SeasonInfo('Season Info',
+                                     [s_info['name'], s_info['year']],
+                                     s_info,
+                                     winners)
+        season_page.create_page()
         
-    @unittest.skip('')
+
+    def test4_generate_results(self):
+        s_name = self.dbobj.season_info()['name']
+        for event in self.db.events.find():
+            e_name = event['event_name']
+            res = self.dbobj.race_results(e_name)
+            results_page = mh.RaceResults('Race Results',
+                                            [e_name, 'Official Results'],
+                                            res,
+                                            s_name,
+                                            e_name)
+
+            results_page.create_page()
+
+        
     def test5_generate_standings(self):
-        dbobj = dbhandler.DBHandler('Unipart Series.ini')
-        standings = dbobj.chship_standings()
-        season_name = dbobj.season_info()['name']
+        standings = self.dbobj.chship_standings()
+        season_name = self.dbobj.season_info()['name']
 
-        standings_page = mh_v.StandingsPage('Standings',
-                                            ['Official Standings', ''],
-                                            standings,
-                                            season_name)
-        standings_page.build_page()
+        standings_page = mh.StandingsPage('Standings',
+                                          ['Official Standings', ''],
+                                          standings,
+                                          season_name)
+        standings_page.create_page()
 
-    @unittest.skip('')
+
     def test6_generate_driver_pages(self):
-        client = MongoClient('mongodb://localhost:27017/')
-        client.server_info()
-        db = client.chship
-        dbobj = dbhandler.DBHandler('Unipart Series.ini')
-        dr_stats = dbobj.all_drivers_history()
-        for dr in db.drivers.find():
-            driver_page = mh.DriverStats(dr['name'], dr_stats[dr['name']])
-            driver_page.build_page()
+
+        dr_stats = self.dbobj.all_drivers_history()
+        for dr in list(dr['name'] for dr in list(self.db.drivers.find())):
+            driver_page = mh.DriverStats('Driver Info',
+                                         [dr, ''],
+                                         dr,
+                                         dr_stats[dr])
+            driver_page.create_page()
 
 if __name__ == '__main__':
     unittest.main()
