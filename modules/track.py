@@ -1,5 +1,6 @@
 import configparser
 import sys, os
+import re
 
 class Track:
 
@@ -20,7 +21,7 @@ class Track:
     def meta_info(self):
         ''' Extracts track information from the track.ini '''
         
-        return {'name': self.config[' track ']['track_name'].title(),
+        return {'name': re.sub('[^a-zA-Z0-9\'_]+', ' ', self.config[' track ']['track_name']).strip().title(),
                 'length': float(self.config[' track ']['track_length'].strip('m ')),
                 'type': self.config[' track ']['track_type'],
                 'location': '{}, {}'.format(self.config[' track ']['track_city'], self.config[' track ']['track_state']),
