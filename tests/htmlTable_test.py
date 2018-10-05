@@ -115,7 +115,7 @@ class TableTest(unittest.TestCase):
         with open('page_test.html', 'w') as page_f:
             page_f.write(page.assemble())
         webbrowser.open('page_test.html')
-    
+    @unittest.skip('')
     def test3_generate_seasoninfo(self):
         winners = self.dbobj.all_winners()
         s_info = self.dbobj.season_info()
@@ -125,21 +125,22 @@ class TableTest(unittest.TestCase):
                                      winners)
         season_page.create_page()
         
-
+    @unittest.skip('')
     def test4_generate_results(self):
         s_name = self.dbobj.season_info()['name']
         for event in self.db.events.find():
             e_name = event['event_name']
+            e_track = event['track_name']
             res = self.dbobj.race_results(e_name)
             results_page = mh.RaceResults('Race Results',
-                                            [e_name, 'Official Results'],
+                                            [e_name, e_track],
                                             res,
                                             s_name,
                                             e_name)
 
             results_page.create_page()
 
-        
+    @unittest.skip('')    
     def test5_generate_standings(self):
         standings = self.dbobj.chship_standings()
         season_name = self.dbobj.season_info()['name']
@@ -150,7 +151,7 @@ class TableTest(unittest.TestCase):
                                           season_name)
         standings_page.create_page()
 
-
+    @unittest.skip('')
     def test6_generate_driver_pages(self):
 
         dr_stats = self.dbobj.all_drivers_history()
@@ -161,5 +162,26 @@ class TableTest(unittest.TestCase):
                                          dr_stats[dr])
             driver_page.create_page()
 
+            
+    def test7_generate_track_pages(self):
+
+        s_info = self.dbobj.season_info()
+        season_name = s_info['name']
+        winners = self.dbobj.all_winners()
+        for tr in self.db.tracks.find():
+            events_data = []
+            tr_events = self.db.events.find({'track_name': tr['name']})
+            for event in tr_events:
+                events_data.append([event['event_id']+1,
+                                    event['event_name'],
+                                    winners[event['event_name']]['winner']
+                                    ])
+        
+            track_page = mh.TrackPage('Track Info',
+                                      [tr['name'], season_name],
+                                      tr['name'],
+                                      events_data)
+            track_page.create_page()
+            
 if __name__ == '__main__':
     unittest.main()
