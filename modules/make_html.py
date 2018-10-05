@@ -75,12 +75,11 @@ class htmlPage:
         self.widths = []
         self.tabledata = [[]]
 
-    def make_href(self, chfrom: str):
+    def make_href(self, from_str: str, to_str: str):
         ''' Transforms a string into a href.
             //Not implemented yet.// '''
             
-        chto = chfrom.replace('\'', '').replace(' ', _) + '.html'
-        return '<a href="{}">{}</a>'.format(chto, chfrom)
+        return '<a href="{}">{}</a>'.format(to_str, from_str)
 
     def build_tables(self):
         ''' Puts together the tables from the tabledata list of lists and the widths of all the columns and
@@ -110,7 +109,43 @@ class htmlPage:
             
         with open('./tables/'+self.filename+'.html', 'w') as page_f:
             page_f.write(self.assemble())
+
+class DriverStats(htmlPage):
+    ''' Webpage for an individual driver's results and statistics.
+        On top of the attributes of teh parent class you have to provide:
+            - driver_name -> <(first name initial) (surname)'(nickname)'>
+            - driver_stats -> list from dbhandler.DBHandler.all_drivers_history()
+
+        Usually this page is created in bulk for all the drivers at once. '''
+        
     
+
+    def __init__(self, head: str, title_text: str, driver_name: str, driver_stats: list):
+        super().__init__(head, title_text)
+        self.driver_name = driver_name
+        self.driver_stats = driver_stats
+        self.filename = 'driver_'+ \
+                        self.driver_name.replace(' ', '_') \
+                                        .replace('\'', '')
+        self.widths = [18, 300, 300, 18, 18, 18, 45, 80]
+        self.tabledata = [['No.',
+                          'Event',
+                          'Track',
+                          'Finish',
+                          'Start',
+                          'Laps Led',
+                          'Most Led',
+                          'Status']]
+                
+        for event in self.driver_stats:
+            event[1] = self.make_href(event[1],
+                                'race_' + event[1].replace('\'', '').replace(' ', '_') + '.html')
+            event[2] = self.make_href(event[2],
+                                'track_' + event[2].replace('\'', '').replace(' ', '_') + '.html')
+            self.tabledata.append(event)
+
+    '''TBA: add driver statistics? '''
+
 class StandingsPage(htmlPage):
     ''' A webpage that shows the current standings in the championship.
         Column widths and table headers are predetermined.
@@ -142,12 +177,13 @@ class StandingsPage(htmlPage):
                           'Starts']]
 
         for i, row in enumerate(self.standings):
+            row[0] = self.make_href(row[0],
+                                    'driver_' + row[0].replace('\'', '').replace(' ', '_') + '.html')
             self.tabledata.append([i+1, *row])
-                    
 
 class RaceResults(htmlPage):
     ''' The html format of a race results of a given season.
-        On top of the attributes of teh parent class you have to provide:
+        On top of the attributes of the parent class you have to provide:
             - results -> a list of dictionaries from dbhandler.DBHandler.race_results()
             - season_name }
             - event_name  } -> both entered either manually or from dbhandler.DBHandler.season_info()'''
@@ -176,51 +212,20 @@ class RaceResults(htmlPage):
                            'Status']]
 
         for row in self.results:
+            row['driver'] = self.make_href(row['driver'],
+                                           'driver_' + row['driver'].replace('\'', '').replace(' ', '_') + '.html')
             self.tabledata.append([row['r_position'],
-                              row['q_position'],
-                              row['q_time'],
-                              row['#'],
-                              row['driver'],
-                              row['interval'],
-                              row['laps'],
-                              row['laps_led'],
-                              row['most_led'],
-                              row['points'],
-                              row['status']
-                              ])
-
-        
-class DriverStats(htmlPage):
-    ''' Webpage for an individual driver's results and statistics.
-        On top of the attributes of teh parent class you have to provide:
-            - driver_name -> <(first name initial) (surname)'(nickname)'>
-            - driver_stats -> list from dbhandler.DBHandler.all_drivers_history()
-
-        Usually this page is created in bulk for all the drivers at once. '''
-        
-    
-
-    def __init__(self, head: str, title_text: str, driver_name: str, driver_stats: list):
-        super().__init__(head, title_text)
-        self.driver_name = driver_name
-        self.driver_stats = driver_stats
-        self.filename = 'driver_'+ \
-                        self.driver_name.replace(' ', '_') \
-                                        .replace('\'', '')
-        self.widths = [18, 300, 300, 18, 18, 18, 45, 80]
-        self.tabledata = [['No.',
-                          'Event',
-                          'Track',
-                          'Finish',
-                          'Start',
-                          'Laps Led',
-                          'Most Led',
-                          'Status']]
-                
-        for event in self.driver_stats:
-            self.tabledata.append(event)
-
-
+                                  row['q_position'],
+                                  row['q_time'],
+                                  row['#'],
+                                  row['driver'],
+                                  row['interval'],
+                                  row['laps'],
+                                  row['laps_led'],
+                                  row['most_led'],
+                                  row['points'],
+                                  row['status']
+                                  ])
     
 class SeasonInfo(htmlPage):
     ''' Webpage for the current season's data.
@@ -228,7 +233,7 @@ class SeasonInfo(htmlPage):
             - season_info -> from dbhandler.DBHandler.season_info()
             - winners -> from dbhandler.DBHandler.all_winners() '''
                 
-    def __init__(self, head: str, title_text: str, season_info: dict, winners: dict):
+    def __init__(self, head, title_text, season_info: dict, winners: dict):
         super().__init__(head, title_text)
         self.season_info = season_info
         self.winners = winners
@@ -253,3 +258,27 @@ class SeasonInfo(htmlPage):
                               row['no_of_laps'],
                               self.winners[row['event_name']]['winner']
                               ])
+
+class TrackPage(htmlPage):
+
+    def __init__(self, head, title_text, track_name: str, events: list):
+        super().__init__(head, title_text)
+        self.track_name = track_name
+        self.events = events
+        self.filename = 'track_' + \
+                        self.track_name.replace(' ', '_') \
+                                       .replace('\'', '')
+        self.widths = [45, 160, 160]
+        self.tabledata = [['No.',
+                          'Event Name',
+                          'Winner']]
+
+        for ev in self.events:
+            ev[1] = self.make_href(ev[1],
+                                'race_' + ev[1].replace('\'', '').replace(' ', '_') + '.html')
+
+            ev[2] = self.make_href(ev[2],
+                                  'driver_' + ev[2].replace('\'', '').replace(' ', '_') + '.html')
+            self.tabledata.append(ev)
+
+'''TBA: add "return to Standings" button'''
