@@ -46,7 +46,7 @@ class Results:
         lead_changes = int(re.findall('\d+(?=\s+\()', lead_ch)[0])
         leaders = int(re.findall('(?<=\()\d+', lead_ch)[0])
 
-        return {'track_name': track.title(),
+        return {'track_name': re.sub('[^a-zA-Z0-9\'_]+', ' ', track).strip().title(),
                 'date': datetime(date[2]+2000, date[0], date[1]),
                 'q_weather': weather_Q, # we'll store weather as a string for now
                 'r_weather': weather_R,
