@@ -1,7 +1,6 @@
 from bs4 import BeautifulSoup
 from pprint import pprint
 import re
-from datetime import datetime
 from modules.season import Season
 
 class Results:
@@ -34,7 +33,7 @@ class Results:
         meta = self.soup.findAll('h3')
 
         track = meta[0].get_text().strip()[7:]
-        date = list(map(int, meta[1].get_text().strip()[6:].split('/')))
+        date = meta[1].get_text().strip()[6:].split('/')
         weather_Q = meta[3].get_text().strip()[9:]
         yellows = meta[6].get_text().strip()
         lead_ch = meta[7].get_text().strip()
@@ -47,7 +46,7 @@ class Results:
         leaders = int(re.findall('(?<=\()\d+', lead_ch)[0])
 
         return {'track_name': re.sub('[^a-zA-Z0-9\'_]+', ' ', track).strip().title(),
-                'date': datetime(date[2]+2000, date[0], date[1]),
+                'date': '-'.join(['20'+date[2], date[0], date[1]]),
                 'q_weather': weather_Q, # we'll store weather as a string for now
                 'r_weather': weather_R,
                 'yellow_flags': yellow_flags,
@@ -77,8 +76,6 @@ class Results:
         event_id = self.event_id()
         if event_id == None:
             return None
-        else:
-            print('Reading Qualifying data for Event No.{} at {}'.format(event_id, self.metadata()['track_name']))
         results = []
         for line in self.make_tuples(Q_data.findAll('td'), 4)[1:-1]:
             # time must be converted to seconds if it's over a minute
@@ -94,8 +91,7 @@ class Results:
             results.append(pos_data)
         if results == []:
             print('No Qualifying data for {}'.format(self.metadata()['track_name']))
-        else:
-            print('Done.')
+
         return results
 
     def R_results(self):
@@ -107,7 +103,6 @@ class Results:
             most laps led in a boolean. '''
             
         R_data = self.soup.findAll('table')[1]
-        print('Reading Race data for {}'.format(self.metadata()['track_name']))
         results = []
         for line in self.make_tuples(R_data.findAll('td'), 9)[1:]:
             pos_data = {'r_position': int(line[0]),
@@ -131,8 +126,7 @@ class Results:
             results.append(pos_data)
         if results == []:
             print('No Race data for {}'.format(self.metadata()['track_name']))
-        else:
-            print('Done.')
+
         return results
 
     def full_results(self):
