@@ -68,7 +68,7 @@ class htmlTest(unittest.TestCase):
         standings_page = mh.StandingsPage('Standings',
                                           ['Official Standings', ''],
                                           standings,
-                                          season_name)
+                                          s_info)
         standings_page.create_page()
 
 if __name__ == '__main__':
