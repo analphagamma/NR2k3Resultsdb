@@ -1,7 +1,7 @@
 import configparser
 import sys
 from modules.track import Track
-from datetime import datetime
+from datetime import date
 
 class Season:
     ''' Provides data for the Season table. It initializes by
@@ -40,13 +40,17 @@ class Season:
                 return sch
             else:
                 day = self.config[sec]['day'].strip(' \t')
+                if len(day) == 1:
+                    day = '0'+day
                 month = self.config[sec]['month'].strip(' \t')
+                if len(month) == 1:
+                    month = '0'+month
                 event_name = self.config[sec]['name'].strip(' \t')
                 no_of_laps = self.config[sec]['numberOfLaps'].strip(' \t')
                 track_directory = self.config[sec]['trackDirectory'].strip(' \t')
                 
                 sch.append({'event_id': i,
-                            'date': datetime(int(self.meta_info()['year']),int(month), int(day)),
+                            'date': '-'.join([self.meta_info()['year'], month, day]),
                             'event_name': event_name,
                             'no_of_laps': int(no_of_laps),
                             'track_directory': track_directory})
