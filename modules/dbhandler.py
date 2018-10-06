@@ -12,6 +12,7 @@ class DBHandler:
         
     def __init__(self, series_ini):
         self.series_ini = series_ini
+        self.season = Season(self.series_ini)
         try:
             client = MongoClient('mongodb://localhost:27017/')
             client.server_info()
@@ -21,42 +22,42 @@ class DBHandler:
             print('Connecting to the MongoDB client...')
             self.db = client.chship
             print('Done.')
+            self.season_number = {'number': len(list(self.db.season.find({'name': self.season.meta_info()['name']})))}
 
     ### DB INITIALISATION
     ### -----------------
     
-    def reset_db(self, database):
+    def reset_db(self):
         ''' Drops all tables from the database.
 
             USE WITH CARE!!
             This operation is irreversible. '''
             
-        for col in database.list_collection_names():
+        for col in self.db.list_collection_names():
             print('Dropping {}'.format(col))
-            database[str(col)].drop()
+            self.db[str(col)].drop()
         print('Done.')
 
     def create_database(self):
         ''' Sets up the season, events and tracks collections '''
 
-        s = Season(self.series_ini)
         print('Creating Season table...')
-        # insert season name and year
-        self.db.season.insert_one(s.meta_info())
+        # insert season name and year merged with season number
+        self.db.season.insert_one({**self.season_number, **self.season.meta_info()})
         print('Meta info added.')
         # insert event details //date, event name, number of laps, track directory//
-        self.db.events.insert_many(s.schedule())
+        self.db.events.insert_many(self.season.schedule())
         print('Event list added.')
         # insert season id into current season's entries
         print('Creating Events table...')
-        self.db.events.update_many({'event_name': {'$in': list(e['event_name'] for e in s.schedule())},
-                                    'date': {'$in': list(e['date'] for e in s.schedule())}}, 
-                                    {'$set': {'season_id': self.db.season.find_one({'name': s.meta_info()['name']})['_id']}})
+        self.db.events.update_many({'event_name': {'$in': list(e['event_name'] for e in self.season.schedule())},
+                                    'date': {'$in': list(e['date'] for e in self.season.schedule())}}, 
+                                    {'$set': {'season_id': self.db.season.find_one({'name': self.season.meta_info()['name']})['_id']}})
         print('Events added.')
 
         # creating track table with the details of all tracks in the season
         print('Creating Tracks table...')
-        for tr in s.tracktable():
+        for tr in self.season.tracktable():
             tr = tr.meta_info()
             self.db.tracks.update_one({'track_directory': tr['track_directory']},
                                       {'$setOnInsert': {'length': tr['length'],
@@ -73,14 +74,16 @@ class DBHandler:
     def enter_single_result(self, result_file):
         ''' Adds a race's result from the exported html file. '''
         
-        r = Results(result_file, Season(self.series_ini)) # ADD CHECK IF SEASON EXISTS IN DB
-        print('Adding:\n\tSeason: {}\n\tTrack: {}'.format(r.curSeason.meta_info()['name'], r.metadata()['track_name']))
+        r = Results(result_file, self.season)
+        print('Adding:\n\tSeason: {}\n\tSeason Number: {}\n\tTrack: {}'.format(r.curSeason.meta_info()['name'],
+                                                                               self.season_number['number'],
+                                                                               r.metadata()['track_name']))
         res = r.full_results()
         # create or update driverlist
         for dr in r.driverlist():
             self.db.drivers.update_one({'name': dr['name']},
-                                  {'$setOnInsert': {'number': dr['number']}},
-                                  upsert=True)
+                                      {'$setOnInsert': {'number': dr['number']}},
+                                      upsert=True)
         # update event info with race conditions
         self.db.events.update_one({'event_id': r.event_id()}, {'$set': r.metadata()})
         # update event_id with _id object
@@ -93,7 +96,7 @@ class DBHandler:
         self.db.results.insert_many(res)
         print('Done.')
 
-    def enter_season_result(self, target_folder):
+    def enter_season_result(self, target_folder=''):
         ''' iterates through all the html files in the ./exports_imports/target_folder '''
         
         print('Looking in folder {}...'.format(target_folder))
@@ -116,12 +119,11 @@ class DBHandler:
 
     def season_info(self):
         ''' Returns the season's name, year and a list of the events with their metadata. '''
-        
-        s = Season(self.series_ini)
-        s_info = s.meta_info()
+
+        s_info = self.season.meta_info()
         return {'name': s_info['name'],
                 'year': s_info['year'],
-                'event_list': s.schedule()}
+                'event_list': self.season.schedule()}
 
     ### Race queries
     def race_results(self, race_name):
