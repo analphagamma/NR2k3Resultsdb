@@ -153,15 +153,28 @@ class StandingsPage(htmlPage):
             - standings -> a list of lists from dbhandler.DBHandler.chship_standings()
             - season_name -> a string entered either manually or from dbhandler.DBHandler.season_info()'''
                   
-    def __init__(self, head: str, title_text: list, standings: list, season_name: str):
+    def __init__(self, head: str, title_text: list, standings: list, season_info: str):
         super().__init__(head, title_text)
         self.standings = standings
-        self.season_name = season_name
+        self.season_info = season_info
         self.filename = 'standings_'+ \
-                        self.season_name.replace(' ', '_') \
-                                        .replace('\'', '') \
-                                        .replace('(', '_') \
-                                        .replace(')', '_')
+                        self.season_info['year'] + \
+                        '_' + \
+                        self.season_info['name'].replace(' ', '_') \
+                                                .replace('\'', '') \
+                                                .replace('(', '_') \
+                                                .replace(')', '_')
+
+        season_file_name = 'season_'+ \
+                           self.season_info['year'] + \
+                           '_' + \
+                           self.season_info['name'].replace(' ', '_') \
+                                                   .replace('\'', '') \
+                                                   .replace('(', '_') \
+                                                   .replace(')', '_') + \
+                           '.html'
+        title_text[1] = self.make_href('Season Info', season_file_name)
+                    
         self.widths = [18,250,100,18,18,18,18,50,50,18,18,18]
         self.tabledata = [['P',
                           'Driver',
@@ -241,22 +254,41 @@ class SeasonInfo(htmlPage):
                         self.season_info['year']+ \
                         '_'+ \
                         self.season_info['name'].replace(' ', '_') \
-                                               .replace('\'', '') \
-                                               .replace('(', '_') \
-                                               .replace(')', '_')
-        self.widths = [160, 160, 100, 45, 160]
+                                                .replace('\'', '') \
+                                                .replace('(', '_') \
+                                                .replace(')', '_')
+        self.widths = [120, 160, 100, 45, 160]
         self.tabledata = [['Date',
                           'Event Name',
                           'Track',
                           'Laps',
                           'Winner']]
 
+        standings_file_name = 'standings_'+ \
+                              self.season_info['year'] + \
+                              '_' + \
+                              self.season_info['name'].replace(' ', '_') \
+                                                   .replace('\'', '') \
+                                                   .replace('(', '_') \
+                                                   .replace(')', '_') + \
+                           '.html'
+        title_text[1] = self.make_href('Standings', standings_file_name)
+
         for row in self.season_info['event_list']:
+            event = row['event_name']
+            event = self.make_href(event,
+                                'race_' + event.replace('\'', '').replace(' ', '_') + '.html')
+            track = self.winners[row['event_name']]['track']
+            track = self.make_href(track,
+                                'track_' + track.replace('\'', '').replace(' ', '_') + '.html')
+            winner = self.winners[row['event_name']]['winner']
+            winner = self.make_href(winner,
+                                  'driver_' + winner.replace('\'', '').replace(' ', '_') + '.html')
             self.tabledata.append([row['date'],
-                              row['event_name'],
-                              self.winners[row['event_name']]['track'],
+                              event,
+                              track,
                               row['no_of_laps'],
-                              self.winners[row['event_name']]['winner']
+                              winner
                               ])
 
 class TrackPage(htmlPage):
