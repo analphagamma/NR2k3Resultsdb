@@ -1,14 +1,15 @@
 import configparser
-import sys
+import sys, os
 from modules.track import Track
-from datetime import date
 
 class Season:
     ''' Provides data for the Season table. It initializes by
         opening and parsing the series ini file. '''
         
     def __init__(self, ini_file):
-        self.ini_file = '../series/cup/' + ini_file
+        self.ini_file = './series/cup/' + ini_file
+        if not os.path.isfile('./series/cup/' + ini_file):
+            raise FileNotFoundError('Ini file doesn\'t exist or path is incorrect')
 
         self.config = configparser.ConfigParser(inline_comment_prefixes=';')
         try:

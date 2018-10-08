@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 from pprint import pprint
 import re
+import os
 from modules.season import Season
 
 class Results:
@@ -8,9 +9,11 @@ class Results:
     
     def __init__(self, exported_results, curSeason: Season):
         self.exported_results = exported_results
+        if not os.path.isfile('./exports_imports/' + self.exported_results):
+            raise FileNotFoundError('File doesn\'t exist or path is incorrect')
         self.curSeason = curSeason
 
-        with open('../exports_imports/' + self.exported_results, 'rb') as f:
+        with open('./exports_imports/' + self.exported_results, 'rb') as f:
             self.soup = BeautifulSoup(f, 'html.parser')
 
     
