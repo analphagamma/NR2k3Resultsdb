@@ -1,7 +1,5 @@
 import unittest
-from pprint import pprint
-import webbrowser
-from context import make_html as mh
+from context import htmlcreator as hc
 from context import dbhandler
 from pymongo import MongoClient
 
@@ -23,7 +21,7 @@ class htmlTest(unittest.TestCase):
 
         # Generate Driver pages
         for dr in list(dr['name'] for dr in list(self.db.drivers.find())):
-            driver_page = mh.DriverStats('Driver Info',
+            driver_page = hc.DriverStats('Driver Info',
                                          [dr, ''],
                                          dr,
                                          dr_stats[dr])
@@ -34,7 +32,7 @@ class htmlTest(unittest.TestCase):
             e_name = event['event_name']
             e_track = event['track_name']
             res = self.dbobj.race_results(e_name)
-            results_page = mh.RaceResults('Race Results',
+            results_page = hc.RaceResults('Race Results',
                                             [e_name, e_track],
                                             res,
                                             season_name,
@@ -51,21 +49,21 @@ class htmlTest(unittest.TestCase):
                                     winners[event['event_name']]['winner']
                                     ])
         
-            track_page = mh.TrackPage('Track Info',
+            track_page = hc.TrackPage('Track Info',
                                       [tr['name'], season_name],
                                       tr['name'],
                                       events_data)
             track_page.create_page()
             
         # Generate Season info page
-        season_page =  mh.SeasonInfo('Season Info',
+        season_page =  hc.SeasonInfo('Season Info',
                                      [s_info['name'], s_info['year']],
                                      s_info,
                                      winners)
         season_page.create_page()
         
         # Generate Standings page
-        standings_page = mh.StandingsPage('Standings',
+        standings_page = hc.StandingsPage('Standings',
                                           ['Official Standings', ''],
                                           standings,
                                           s_info)
