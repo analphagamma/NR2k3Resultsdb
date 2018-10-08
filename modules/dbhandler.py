@@ -356,3 +356,16 @@ class DBHandler:
             all_drivers[driver['name']] = sorted(dr_results, key=lambda k: k[0])
 
         return all_drivers
+
+    def next_race(self):
+        ''' Returns the next event's name and track location
+            without results data in the current season. '''
+
+        next_ev = {}
+        for ev in self.db.events.find():
+            if not self.db.results.find_one({'event_id': ev['_id']}):
+                if next_ev == {} or ev['event_id'] < next_ev['event_id']:
+                    next_ev = ev 
+
+        return {'name': next_ev['eventname'],
+                'track': self.db.tracks.find_one({'track_directory': next_ev['track_directory']})['name']}
