@@ -96,10 +96,11 @@ class htmlPage:
         opening_tags = '<html>\n<body style="background-color:{};">\n<head><title>\n'.format(self.bg_colour)
         title1 = '<h1 style="text-align: center;">{}</h1>\n'.format(self.title_text[0])
         title2 = '<h2 style="text-align: center;">{}</h2>\n'.format(self.title_text[1])
+        title3 = '' if len(self.title_text) < 3 else '<h3 style="text-align: center;">{}</h3>\n'.format(self.title_text[2])
         body_tags = '</title></head>\n<body>\n'
         tables = ''.join(self.build_tables())
         closing_tags = '</body>\n</html>'
-        return opening_tags + self.head + body_tags + title1 + title2  + tables + closing_tags
+        return opening_tags + self.head + body_tags + title1 + title2  + title3 + tables + closing_tags
 
     def create_page(self):
         ''' Saves the html file with the correct filename into the
@@ -276,12 +277,18 @@ class SeasonInfo(htmlPage):
             event = row['event_name']
             event = self.make_href(event,
                                 'race_' + event.replace('\'', '').replace(' ', '_') + '.html')
-            track = self.winners[row['event_name']]['track']
-            track = self.make_href(track,
-                                'track_' + track.replace('\'', '').replace(' ', '_') + '.html')
-            winner = self.winners[row['event_name']]['winner']
-            winner = self.make_href(winner,
-                                  'driver_' + winner.replace('\'', '').replace(' ', '_') + '.html')
+            if not self.winners[row['event_name']]:
+                track = '-'
+            else:
+                track = self.winners[row['event_name']]['track']
+                track = self.make_href(track,
+                                       'track_' + track.replace('\'', '').replace(' ', '_') + '.html')
+            if not self.winners[row['event_name']]:
+                winner = '-'
+            else:
+                winner = self.winners[row['event_name']]['winner']
+                winner = self.make_href(winner,
+                                        'driver_' + winner.replace('\'', '').replace(' ', '_') + '.html')
             self.tabledata.append([row['date'],
                               event,
                               track,
