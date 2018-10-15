@@ -6,14 +6,14 @@ class Track:
 
     def __init__(self, track_dir):
         self.track_dir = track_dir
-        if not os.path.exists('../tracks/{}'.format(self.track_dir)):
+        if not os.path.exists('./tracks/{}'.format(self.track_dir)):
             raise FileNotFoundError
 
         self.config = configparser.ConfigParser(inline_comment_prefixes=';')
         try:
-            self.config.read('../tracks/{}/track.ini'.format(self.track_dir))
+            self.config.read('./tracks/{}/track.ini'.format(self.track_dir))
         except UnicodeDecodeError:
-            self.config.read('../tracks/{}/track.ini'.format(self.track_dir), encoding='Latin-1')
+            self.config.read('./tracks/{}/track.ini'.format(self.track_dir), encoding='Latin-1')
         except:
             print('There is a problem with the ini file.')
             sys.exit(1)
