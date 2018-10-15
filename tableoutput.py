@@ -20,6 +20,14 @@ class TableOutput:
         season_name = s_info['name']
         standings = self.dbobj.chship_standings()
         winners = self.dbobj.all_winners()
+        next_event = self.dbobj.next_race()
+        if not next_event:
+            next_event = {'title': 'All events have been completed in this season.',
+                          'name': '',
+                          'track': ''
+                        }
+        else:
+            next_event['title'] = 'Next event is:'
 
         # Generate Driver pages
         print('Generating Driver pages.')
@@ -35,7 +43,7 @@ class TableOutput:
         print('Generating Race pages.')
         for event in self.db.events.find():
             e_name = event['event_name']
-            e_track = event['track_name']
+            e_track = self.db.tracks.find_one({'track_directory': event['track_directory']})['name']
             res = self.dbobj.race_results(e_name)
             results_page = hc.RaceResults('Race Results',
                                             [e_name, e_track],
@@ -75,8 +83,13 @@ class TableOutput:
         
         # Generate Standings page
         print('Generating Standings.')
+        next_ev = "{}\n{} at {}".format(next_event['title'],
+                                        next_event['name'],
+                                        next_event['track'])
+        print(next_ev)
+        
         standings_page = hc.StandingsPage('Standings',
-                                          ['Official Standings', ''],
+                                          ['Official Standings', 'Season Info', next_ev],
                                           standings,
                                           s_info)
         standings_page.create_page()
