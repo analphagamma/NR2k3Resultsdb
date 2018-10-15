@@ -1,0 +1,110 @@
+import os, sys
+from tableoutput import TableOutput
+from modules.dbhandler import DBHandler
+
+class Menu():
+    '''This is the class for all menu-related methods.
+       It displays menus, handles all user-input and calls database commands from the other class.'''
+    
+
+    def show_menu(self, menu_name, options):
+        '''Displays any menus and executes the requested functions
+        [In]:
+            menu_name -> str - The name of the menu in the head
+            options -> dict - available options in the menu
+                              key: str - The character by which the option can be called
+                              value: list - value[0] - func - the function to execute
+                                            value[1] - str - option text
+                                            value[2] - str - prompt text
+                                    
+        [Out]:
+            boolean - None: exits the application
+                      True: clears the screen and displays the menu again
+                                (in case of incorrect input or aborted authentication)'''
+       
+        while True:
+            #displays available options in the menu
+            os.system('clear')
+            print(menu_name)
+            print('=' * len(menu_name) + '\n')
+            
+            for num, option in sorted(options.items()):
+                print(num, ' - ', option[1])
+                        
+            q = input('\nPlease select an option from above or enter \'quit\' to exit\n>').lower().strip(' ')
+            if q == 'quit': 
+                print('\nExiting.')
+                return None
+            if q not in options.keys():
+                return True
+            else:
+                #execute requested function
+                while True:
+                    os.system('clear')
+                    print(options[q][1])
+                    print('=' * len(options[q][1]))
+                    print(options[q][2])
+                    if not options[q][0]():
+                        input('\nPress enter to continue.')
+                        break
+
+class MenuActions():
+    
+    def reset_database(self):
+        ''' Query and confirmation to clear all collections from the db. '''
+
+        confirm = False
+        while not confirm:
+            confirm = input('Are you sure? (y/n)\n>')
+            if confirm not in ['y', 'n']:
+                print('Please enter y or n.')
+                confirm = False
+            elif confirm == 'n':
+                return None
+            elif confirm == 'y':
+                dbobj.reset_db()
+                dbobj.create_database()
+                confirm = True
+        return None
+
+    def enter_results(self):
+        ''' Query of folder name where results are found. '''
+        
+        results_entered = False
+        while not results_entered:
+            results_dir = input('\nPlease enter the subfolder\'s name where you saved the results or enter "quit".\n(eg. "whatever" will mean exports_imports\\whatever)\n> ')
+            if os.path.isdir('./exports_imports/'+results_dir):
+                dbobj.enter_season_result(results_dir)
+                results_entered = True
+            elif results_dir == 'quit':
+                return None
+            else:
+                print('Folder not found.')
+
+        print('All done.')
+
+        t_obj = TableOutput(series)
+        t_obj.generate_output()
+        sys.exit(0)
+
+    def menu_options(self):
+        return {'1': [self.reset_database, 'Reset Database', 'This option will delete all data from this series'],
+                '2': [self.enter_results, 'Enter Results & Generate HTML tables', '']}
+
+
+if __name__ == '__main__':
+    db_open = False
+    while not db_open:
+        series = input('\nPlease enter series ini file name\n(eg. Whatever Cup.ini)\n> ')
+        try:
+            dbobj = DBHandler(series)
+        except FileNotFoundError:
+            print('This ini file doesn\'t seem to exist.')
+        else:
+            db_open = True
+            
+    menu = Menu()
+    actions = MenuActions()
+    while True:
+        if not menu.show_menu('nrk3 Results Database', actions.menu_options()):
+            break
