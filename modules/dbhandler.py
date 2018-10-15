@@ -98,13 +98,13 @@ class DBHandler:
 
     def enter_season_result(self, target_folder=''):
         ''' iterates through all the html files in the ./exports_imports/target_folder '''
-        
+
         print('Looking in folder {}...'.format(target_folder))
-        for f in os.walk('../exports_imports/'+target_folder): # ADD CHECK!!
+        for f in os.walk('./exports_imports/'+target_folder): # ADD CHECK!!
             results_files = f[2]
             print('{} exported results found'.format(len(results_files)))
         for rf in results_files:
-            self.enter_single_result(rf)
+            self.enter_single_result('/'.join([target_folder, rf]))
         print('All entries added.')
 
     ### QUERIES
@@ -167,6 +167,8 @@ class DBHandler:
             winner = self.db.results.find_one({'event_id': self.db.events.find_one({'event_name': race_name})['_id'],
                                                'r_position': {'$eq': 1}
                                                })
+            if not winner:
+                return None
             trackd = self.db.events.find_one({'event_name': race_name})['track_directory']
             
             return {'winner':self.db.drivers.find_one({'_id': winner['driver']})['name'],
@@ -366,6 +368,8 @@ class DBHandler:
             if not self.db.results.find_one({'event_id': ev['_id']}):
                 if next_ev == {} or ev['event_id'] < next_ev['event_id']:
                     next_ev = ev 
-
-        return {'name': next_ev['eventname'],
-                'track': self.db.tracks.find_one({'track_directory': next_ev['track_directory']})['name']}
+        if not next_ev:
+            return None
+        else:
+            return {'name': next_ev['event_name'],
+                    'track': self.db.tracks.find_one({'track_directory': next_ev['track_directory']})['name']}

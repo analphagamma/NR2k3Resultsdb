@@ -9,6 +9,7 @@ class Results:
     
     def __init__(self, exported_results, curSeason: Season):
         self.exported_results = exported_results
+        print('Reading ', self.exported_results)
         if not os.path.isfile('./exports_imports/' + self.exported_results):
             raise FileNotFoundError('File doesn\'t exist or path is incorrect')
         self.curSeason = curSeason
