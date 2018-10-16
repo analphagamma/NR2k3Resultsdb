@@ -49,6 +49,20 @@ class Menu():
                         break
 
 class MenuActions():
+
+    def create_new(self):
+        ''' Creates a new season. '''
+        confirm = False
+        while not confirm:
+            confirm = input('Enter "quit" to go back to the main menu\n>')
+        if confirm == 'quit':
+            return None
+        elif confirm != dbobj.series_ini:
+            print('Ini file does not match.')
+        else:
+            dbobj.create_database()
+            confirm = True
+            return None
     
     def reset_database(self):
         ''' Query and confirmation to clear all collections from the db. '''
@@ -63,7 +77,6 @@ class MenuActions():
                 return None
             elif confirm == 'y':
                 dbobj.reset_db()
-                dbobj.create_database()
                 confirm = True
         return None
 
@@ -87,9 +100,17 @@ class MenuActions():
         t_obj.generate_output()
         sys.exit(0)
 
+    def generate_pages(self):
+        ''' Remakes all the webpages without having to go through the database inserts. '''
+        t_obj = TableOutput(series)
+        t_obj.generate_output()
+        sys.exit(0)
+
     def menu_options(self):
-        return {'1': [self.reset_database, 'Reset Database', 'This option will delete all data from this series'],
-                '2': [self.enter_results, 'Enter Results & Generate HTML tables', '']}
+        return {'1': [self.create_new, 'Create New Season', 'Please re-enter your series ini.\nCaution! This will re-write an existing season'],
+                '2': [self.reset_database, 'Reset Database', 'This option will delete all data from this series'],
+                '3': [self.enter_results, 'Enter Results & Generate HTML tables', ''],
+                '4': [self.generate_pages, 'Generate webpages', '']}
 
 
 if __name__ == '__main__':
