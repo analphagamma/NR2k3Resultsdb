@@ -27,7 +27,7 @@ class TableOutput:
                           'track': ''
                         }
         else:
-            next_event['title'] = 'Next event is:'
+            next_event['title'] = 'Next event: '
 
         # Generate Driver pages
         print('Generating Driver pages.')
@@ -83,9 +83,9 @@ class TableOutput:
         
         # Generate Standings page
         print('Generating Standings.')
-        next_ev = "{}\n{} at {}".format(next_event['title'],
-                                        next_event['name'],
-                                        next_event['track'])
+        next_ev = "{}\n{} {}".format(next_event['title'],
+                                     next_event['name'],
+                                     next_event['track'])
         print(next_ev)
         
         standings_page = hc.StandingsPage('Standings',
@@ -101,4 +101,3 @@ class TableOutput:
 if __name__ == '__main__':
     t_obj = TableOutput('Unipart Series.ini')
     t_obj.generate_output()
-
