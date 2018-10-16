@@ -65,7 +65,7 @@ class Results:
         for event in self.curSeason.schedule():
             if event['date'] == self.metadata()['date']:
                 return event['event_id']
-        print('Race at {} on {}is not scheduled in this season.'.format(self.metadata()['track_name'],
+        print('Race at {} on {} is not scheduled in this season.'.format(self.metadata()['track_name'],
                                                                         str(self.metadata()['date']).split()[0]))
         return None
         
@@ -161,4 +161,3 @@ class Results:
             driverlist.append({'name': dr['driver'], 'number': dr['#']})
 
         return driverlist
-
