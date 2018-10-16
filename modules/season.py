@@ -64,4 +64,3 @@ class Season:
             tracklist.append(Track(tr['track_directory']))
 
         return tracklist
-                
