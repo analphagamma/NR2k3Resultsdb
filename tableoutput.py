@@ -41,7 +41,7 @@ class TableOutput:
             
         # Generate Results pages (Events)
         print('Generating Race pages.')
-        for event in self.db.events.find():
+        for event in self.db.events.find({'season_id': self.dbobj.season_id}):
             e_name = event['event_name']
             e_track = self.db.tracks.find_one({'track_directory': event['track_directory']})['name']
             res = self.dbobj.race_results(e_name)

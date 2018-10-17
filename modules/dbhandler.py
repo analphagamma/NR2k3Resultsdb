@@ -22,7 +22,11 @@ class DBHandler:
             print('Connecting to the MongoDB client...')
             self.db = client.chship
             print('Done.')
-            #self.season_number = {'number': len(list(self.db.season.find({'name': self.season.meta_info()['name']})))}
+            try:
+                self.season_id = self.db.season.find_one(self.season.meta_info())['_id']
+            except TypeError:
+                self.season_id = None
+            print(self.season_id)
 
     ### DB INITIALISATION
     ### -----------------
@@ -53,9 +57,12 @@ class DBHandler:
         print('Event list added.')
         # insert season id into current season's entries
         print('Creating Events table...')
+        self.season_id = self.db.season.find_one(self.season.meta_info())['_id']
         self.db.events.update_many({'event_name': {'$in': list(e['event_name'] for e in self.season.schedule())},
                                     'date': {'$in': list(e['date'] for e in self.season.schedule())}}, 
-                                    {'$set': {'season_id': self.db.season.find_one(self.season.meta_info())['_id']}})
+                                    {'$set': {'season_id': self.season_id}
+                                    }
+                                  )
         print('Events added.')
 
         # creating track table with the details of all tracks in the season
@@ -78,12 +85,14 @@ class DBHandler:
         ''' Adds a race's result from the exported html file. '''
         
         r = Results(result_file, self.season)
+        
         cur_event = self.db.events.find_one({'event_id': r.event_id(), 'date': r.metadata()['date']})
         if not cur_event:
             return
         elif len(cur_event.items()) != 7:
             print('Results for {} already in database.'.format(cur_event['event_name']))
             return
+            
         print('Adding:\n\tSeason: {}\n\tYear: {}\n\tTrack: {}'.format(r.curSeason.meta_info()['name'],
                                                                       r.curSeason.meta_info()['year'],
                                                                       r.metadata()['track_name']))
@@ -98,12 +107,11 @@ class DBHandler:
                                    'date': r.metadata()['date']},
                                         {'$set': r.metadata()}
                                  )
-        # update event_id with _id object
+        # update event_id with _id object, driver with driver_id, and adding season_id
         for row in res:
             row['event_id'] = self.db.events.find_one({'event_id': r.event_id()})['_id']
-        # update driver name with _id object
-        for row in res:
             row['driver'] = self.db.drivers.find_one({'name': row['driver']})['_id']
+            row['season_id'] = self.season_id
         # insert results
         self.db.results.insert_many(res)
         print('Done.')
@@ -145,7 +153,8 @@ class DBHandler:
         ''' Returns a race's full results
             sorted by position '''
             
-        event = self.db.events.find_one({'event_name': race_name})
+        event = self.db.events.find_one({'event_name': race_name,
+                                         'season_id': self.season_id})
         if event == None:
             print('Event "{}" not found in season'.format(race_name))
             return None
@@ -176,23 +185,27 @@ class DBHandler:
             tuple[0] is the event name
             tuple[1] is the driver's name. '''
             
-        def winner_of_race(self, race_name):
+        def winner_of_race(self, race_name, season):
             ''' Returns an object from self.db.drivers. '''
             
             winner = self.db.results.find_one({'event_id': self.db.events.find_one({'event_name': race_name})['_id'],
+                                               'season_id': season,
                                                'r_position': {'$eq': 1}
                                                })
-            if not winner:
-                return None
+
             trackd = self.db.events.find_one({'event_name': race_name})['track_directory']
-            
-            return {'winner':self.db.drivers.find_one({'_id': winner['driver']})['name'],
-                    'track': self.db.tracks.find_one({'track_directory': trackd})['name'],
-                    'track_directory': trackd}
+            if not winner:
+                return {'winner': '-',
+                        'track': self.db.tracks.find_one({'track_directory': trackd})['name'],
+                        'track_directory': trackd}
+            else:
+                return {'winner':self.db.drivers.find_one({'_id': winner['driver']})['name'],
+                        'track': self.db.tracks.find_one({'track_directory': trackd})['name'],
+                        'track_directory': trackd}
 
         all_winners = {}
         for event in self.db.events.find():
-            all_winners[event['event_name']] = winner_of_race(self, event['event_name'])
+            all_winners[event['event_name']] = winner_of_race(self, event['event_name'], self.season_id)
         return all_winners
 
     def driver_summary(self, driver_name):
@@ -213,22 +226,29 @@ class DBHandler:
         def points():
             ''' Returns the aggregate points of a driver. '''
             points = self.db.results.aggregate([{'$match':
-                                            {'driver': dr_id}},
-                                         {'$group':
-                                            {'_id': 'null',
-                                                'points': 
-                                                    {'$sum': '$points'}
-                                            }
-                                         }])
-            return points.next()['points']
+                                                    {'driver': dr_id,
+                                                     'season_id': self.season_id}
+                                                },
+                                                {'$group':
+                                                    {'_id': 'null',
+                                                     'points': 
+                                                        {'$sum': '$points'}
+                                                    }
+                                                }])
+            if points.alive:
+                return points.next()['points']
+            else:
+                return 0
                                          
         def wins():
             ''' Returns the number of topfives by a driver. '''
             wins = self.db.results.aggregate([{'$match':
-                                             {'driver': dr_id, 'r_position': 1}
-                                          },
-                                         {'$count': 'wins'}
-                                          ])
+                                                 {'driver': dr_id,
+                                                  'r_position': 1,
+                                                  'season_id': self.season_id}
+                                                },
+                                            {'$count': 'wins'}
+                                            ])
             if wins.alive:
                 return wins.next()['wins']
             else:
@@ -237,10 +257,12 @@ class DBHandler:
         def top5s():
             ''' Returns the number of top5 finishes by a driver. '''
             topfives =  self.db.results.aggregate([{'$match':
-                                             {'driver': dr_id, 'r_position': {'$lte': 5}}
-                                          },
-                                         {'$count': 'topfives'}
-                                          ])
+                                                         {'driver': dr_id,
+                                                         'r_position': {'$lte': 5},
+                                                         'season_id': self.season_id}
+                                                      },
+                                                     {'$count': 'topfives'}
+                                                      ])
             if topfives.alive:
                 return topfives.next()['topfives']
             else:
@@ -249,10 +271,12 @@ class DBHandler:
         def top10s():
             ''' Returns the number of top10 finishes by a driver. '''
             toptens =  self.db.results.aggregate([{'$match':
-                                             {'driver': dr_id, 'r_position': {'$lte': 10}}
-                                            },
-                                            {'$count': 'toptens'}
-                                            ])
+                                                     {'driver': dr_id,
+                                                     'r_position': {'$lte': 10},
+                                                     'season_id': self.season_id}
+                                                    },
+                                                    {'$count': 'toptens'}
+                                                    ])
             if toptens.alive:
                 return toptens.next()['toptens']
             else:
@@ -261,10 +285,12 @@ class DBHandler:
         def pole_pos():
             ''' Returns the number of pole positions by a driver. '''
             poles =  self.db.results.aggregate([{'$match':
-                                                    {'driver': dr_id, 'q_position': 1}
+                                                    {'driver': dr_id,
+                                                     'q_position': 1,
+                                                     'season_id': self.season_id}
                                                 },
-                                            {'$count': 'poles'}
-                                            ])
+                                                {'$count': 'poles'}
+                                                ])
             if poles.alive:
                 return poles.next()['poles']
             else:
@@ -273,37 +299,50 @@ class DBHandler:
         def avg_finish():
             ''' Returns the average finishing position of a driver. '''
             avg_fin =  self.db.results.aggregate([{'$match':
-                                                {'driver': dr_id}},
-                                             {'$group':
-                                                {'_id': 'null',
-                                                 'avg': 
-                                                    {'$avg': '$r_position'}
-                                                }
-                                             }])
-            return avg_fin.next()['avg']
+                                                {'driver': dr_id,
+                                                 'season_id': self.season_id}
+                                                 },
+                                                 {'$group':
+                                                    {'_id': 'null',
+                                                     'avg': 
+                                                        {'$avg': '$r_position'}
+                                                    }
+                                                 }])
+            if avg_fin.alive:
+                return avg_fin.next()['avg']
+            else:
+                return 0
             
         def avg_start():
             ''' Returns the average starting position of a driver. '''
             avg_st =  self.db.results.aggregate([{'$match':
-                                                {'driver': dr_id}},
-                                            {'$group':
-                                                {'_id': 'null',
-                                                 'avg': 
-                                                    {'$avg': '$q_position'}
-                                                }
-                                            }])
-            return avg_st.next()['avg']
+                                                {'driver': dr_id,
+                                                 'season_id': self.season_id}
+                                                 },
+                                                {'$group':
+                                                    {'_id': 'null',
+                                                     'avg': 
+                                                        {'$avg': '$q_position'}
+                                                    }
+                                                }])
+            if avg_st.alive:
+                return avg_st.next()['avg']
+            else:
+                return 0
             
         def laps_led():
             ''' Returns the number of laps led by a driver. '''
             led =  self.db.results.aggregate([{'$match':
-                                            {'driver': dr_id}},
-                                         {'$group':
-                                            {'_id': 'null',
-                                             'led': 
-                                                {'$sum': '$laps_led'}
-                                            }
-                                          }])
+                                                {'driver': dr_id,
+                                                 'season_id': self.season_id
+                                                 }
+                                              },
+                                             {'$group':
+                                                {'_id': 'null',
+                                                 'led': 
+                                                    {'$sum': '$laps_led'}
+                                                }
+                                              }])
             if led.alive:
                 return led.next()['led']
             else:
@@ -312,12 +351,13 @@ class DBHandler:
         def dnfs():
             ''' Returns the number of retires of a driver. '''
             dnf = self.db.results.aggregate([{'$match':
-                                            {'driver': dr_id,
-                                             'status': {'$ne': 'Running'}
-                                            }
-                                        },
-                                        {'$count': 'dnf'}                                  
-                                        ])
+                                                {'driver': dr_id,
+                                                 'status': {'$ne': 'Running'},
+                                                 'season_id': self.season_id
+                                                }
+                                            },
+                                            {'$count': 'dnf'}                                  
+                                            ])
             if dnf.alive:
                 return dnf.next()['dnf']
             else:
@@ -326,11 +366,16 @@ class DBHandler:
         def num_races():
             ''' Returns the number of races started by the driver. '''
             races = self.db.results.aggregate([{'$match':
-                                             {'driver': dr_id}
-                                         },
-                                         {'$count': 'races'}                                  
-                                         ])
-            return races.next()['races']
+                                                     {'driver': dr_id,
+                                                     'season_id': self.season_id
+                                                     }
+                                                 },
+                                                 {'$count': 'races'}                                  
+                                                 ])
+            if races.alive:
+                return races.next()['races']
+            else:
+                return 0
 
         return (points(),
                 wins(),
@@ -348,8 +393,8 @@ class DBHandler:
         ''' Returns all the event collections that the driver was part of.
             This method returns a generator object. '''
         dr_id = self.db.drivers.find_one({'name': driver_name})['_id']
-
-        res_cur = self.db.results.find({'driver': dr_id})
+        
+        res_cur = self.db.results.find({'driver': dr_id, 'season_id': self.season_id})
         for events in res_cur:
             yield events
 
@@ -379,7 +424,7 @@ class DBHandler:
             without results data in the current season. '''
 
         next_ev = {}
-        for ev in self.db.events.find():
+        for ev in self.db.events.find({'season_id': self.season_id}):
             if not self.db.results.find_one({'event_id': ev['_id']}):
                 if next_ev == {} or ev['event_id'] < next_ev['event_id']:
                     next_ev = ev 
