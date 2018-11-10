@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from pprint import pprint
+from configparser import ConfigParser
 import re
 import os
 from modules.season import Season
@@ -7,16 +8,29 @@ from modules.season import Season
 class Results:
     ''' The class that extracts and organises data from the exported html. '''
     
-    def __init__(self, exported_results, curSeason: Season):
+    def __init__(self, exported_results, curSeason: Season, point_system):
         self.exported_results = exported_results
         print('Reading ', self.exported_results)
+        # checking the validity of the file
         if not os.path.isfile('./exports_imports/' + self.exported_results):
             raise FileNotFoundError('File doesn\'t exist or path is incorrect')
-        self.curSeason = curSeason
 
+        # open result file and prepare it for parsing
         with open('./exports_imports/' + self.exported_results, 'rb') as f:
             self.soup = BeautifulSoup(f, 'html.parser')
 
+        # the season object    
+        self.curSeason = curSeason
+
+        # importing point system from the point_system.ini file
+        self.point_system = point_system
+        p_ini = ConfigParser()
+        p_ini.read('point_system.ini') # we assume it's present and in the correct format
+        if point_system not in p_ini.sections():
+            point_system = 'default' # in case of incorrect input we use the default point system
+        self.point_table = {} # we store the points in a dict
+        for pos in p_ini[point_system]:
+            self.point_table[pos] = int(p_ini[point_system][pos])
     
     def make_tuples(self, seq: list, ch: int):
         ''' Groups list elements into tuples.
@@ -43,7 +57,7 @@ class Results:
         lead_ch = meta[7].get_text().strip()
         weather_R = meta[8].get_text().strip()[9:]
 
-        yellow_flags = int(re.findall('\d+(?=\s+\()', yellows)[0])
+        yellow_flags = int(re.findall('\d+(?=\s+\()', yellows)[0]) # nice
         yellow_laps = int(re.findall('(?<=\()\d+', yellows)[0])
 
         lead_changes = int(re.findall('\d+(?=\s+\()', lead_ch)[0])
@@ -107,22 +121,39 @@ class Results:
             most laps led in a boolean. '''
             
         R_data = self.soup.findAll('table')[1]
+        R_data_tuples = self.make_tuples(R_data.findAll('td'), 9)[1:] # we group them by rows
+
+        # check if partial_points are used and if there are less than 42 drivers
+        if self.point_table.get('partial_points') == 1 and len(R_data_tuples) != 42:
+            # points are proportianally reduced so that last position gets 1 point.
+            point_modifier = self.point_table.get(str(len(R_data_tuples) + 1))            
+        else:
+            point_modifier = 0
+            
         results = []
-        for line in self.make_tuples(R_data.findAll('td'), 9)[1:]:
+        for line in R_data_tuples:
+            # get points from point_system.ini
+            points = self.point_table.get(line[0]) - point_modifier
+            if points == None:
+                points = 0 # if there are no entries for that position
+                
+            if line[6][-1] == '*': # most laps led is indicated by an asterisk in the game
+                laps_led = int(line[6].strip('*'))
+                most_led = True
+                points += self.point_table.get('most_led') + self.point_table.get('laps_led')
+            else:
+                laps_led = int(line[6])
+                if laps_led > 0:
+                    points += self.point_table.get('laps_led')
+                most_led = False
+                
             pos_data = {'r_position': int(line[0]),
                         '#': line[2],
                         'driver': line[3],
                         'interval': line[4],
                         'laps': int(line[5]),
-                        'points': int(line[7]),
+                        'points': points,
                         'status': line[8]}
-                        
-            if line[6][-1] == '*':
-                laps_led = int(line[6].strip('*'))
-                most_led = True
-            else:
-                laps_led = int(line[6])
-                most_led = False
             
             pos_data['laps_led'] = laps_led
             pos_data['most_led'] = most_led

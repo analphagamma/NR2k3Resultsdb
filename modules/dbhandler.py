@@ -28,6 +28,8 @@ class DBHandler:
                 self.season_id = None
             print(self.season_id)
 
+        self.point_system = 'default'
+
     ### DB INITIALISATION
     ### -----------------
     
@@ -84,7 +86,7 @@ class DBHandler:
     def enter_single_result(self, result_file):
         ''' Adds a race's result from the exported html file. '''
         
-        r = Results(result_file, self.season)
+        r = Results(result_file, self.season, self.point_system)
         
         cur_event = self.db.events.find_one({'event_id': r.event_id(), 'date': r.metadata()['date']})
         if not cur_event:

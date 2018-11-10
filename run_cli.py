@@ -87,14 +87,18 @@ class MenuActions():
         while not results_entered:
             results_dir = input('\nPlease enter the subfolder\'s name where you saved the results or enter "quit".\n(eg. "whatever" will mean exports_imports\\whatever)\n> ')
             if os.path.isdir('./exports_imports/'+results_dir):
-                dbobj.enter_season_result(results_dir)
                 results_entered = True
             elif results_dir == 'quit':
                 return None
             else:
                 print('Folder not found.')
 
-        print('All done.')
+        point_sys_input = input('\nPlease enter the name of the point system you wish to use\n>')
+        setattr(dbobj, 'point_system', point_sys_input)
+
+        dbobj.enter_season_result(results_dir)
+
+        print("Results entered.")
 
         t_obj = TableOutput(series)
         t_obj.generate_output()

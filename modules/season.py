@@ -37,7 +37,7 @@ class Season:
             Returns a list of dictionaries. '''
         sch = []
         for i, sec in enumerate(self.config.sections()):
-            if sec == ' Season ':
+            if sec == ' Season ': # when the loop reaches the next section
                 return sch
             else:
                 day = self.config[sec]['day'].strip(' \t')
